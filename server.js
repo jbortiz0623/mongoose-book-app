@@ -5,7 +5,7 @@
 /////////////////////////////
 //  SETUP and CONFIGURATION
 /////////////////////////////
-
+var db = require('./models')
 //require express in our app
 var express = require('express'),
   bodyParser = require('body-parser');
@@ -25,32 +25,32 @@ app.use(bodyParser.urlencoded({ extended: true }));
 //  DATA
 ///////////////////
 
-var books = [
-  {
-    _id: 15,
-    title: "The Four Hour Workweek",
-    author: "Tim Ferriss",
-    image: "https://s3-us-west-2.amazonaws.com/sandboxapi/four_hour_work_week.jpg",
-    release_date: "April 1, 2007"
-  },
-  {
-    _id: 16,
-    title: "Of Mice and Men",
-    author: "John Steinbeck",
-    image: "https://s3-us-west-2.amazonaws.com/sandboxapi/of_mice_and_men.jpg",
-    release_date: "Unknown 1937"
-  },
-  {
-    _id: 17,
-    title: "Romeo and Juliet",
-    author: "William Shakespeare",
-    image: "https://s3-us-west-2.amazonaws.com/sandboxapi/romeo_and_juliet.jpg",
-    release_date: "Unknown 1597"
-  }
-];
+// var books = [
+//   {
+//     _id: 15,
+//     title: "The Four Hour Workweek",
+//     author: "Tim Ferriss",
+//     image: "https://s3-us-west-2.amazonaws.com/sandboxapi/four_hour_work_week.jpg",
+//     release_date: "April 1, 2007"
+//   },
+//   {
+//     _id: 16,
+//     title: "Of Mice and Men",
+//     author: "John Steinbeck",
+//     image: "https://s3-us-west-2.amazonaws.com/sandboxapi/of_mice_and_men.jpg",
+//     release_date: "Unknown 1937"
+//   },
+//   {
+//     _id: 17,
+//     title: "Romeo and Juliet",
+//     author: "William Shakespeare",
+//     image: "https://s3-us-west-2.amazonaws.com/sandboxapi/romeo_and_juliet.jpg",
+//     release_date: "Unknown 1597"
+//   }
+// ];
 
 
-var newBookUUID = 18;
+// var newBookUUID = 18;
 
 
 
@@ -71,32 +71,58 @@ app.get('/', function (req, res) {
 });
 
 // get all books
-app.get('/api/books', function (req, res) {
+app.get('/api/books', (req, res) => {
   // send all books as JSON response
-  console.log('books index');
-  res.json(books);
+  db.Book.find((err, books) => {
+    if(err) { console.log('index error: '+err); res.sendStatus(500); }
+    res.json(books);
+  })
 });
+
+// app.get('/api/books/', function (req, res) {
+//   // send all books as JSON response
+//   db.Book.findById(req.params.id, function(err, books) {
+//     if (err) {
+//       console.log("index error: " + err);
+//       res.sendStatus(500);
+//     }
+//     res.json(books);
+//   });
+// });
 
 // get one book
 app.get('/api/books/:id', function (req, res) {
   // find one book by its id
   console.log('books show', req.params);
-  for(var i=0; i < books.length; i++) {
-    if (books[i]._id === req.params.id) {
-      res.json(books[i]);
-      break; // we found the right book, we can stop searching
-    }
-  }
+  db.Book.findById(re.params.id).populate('author').exec((err, books) => {
+    if(err) { console.log('index error: '+err); res.sendStatus(500); }
+    res.json(books[i]);
+  })
 });
 
 // create new book
-app.post('/api/books', function (req, res) {
-  // create new book with form data (`req.body`)
-  console.log('books create', req.body);
-  var newBook = req.body;
-  newBook._id = newBookUUID++;
-  books.push(newBook);
-  res.json(newBook);
+app.post(‘/api/books’, (req, res)=> {
+ var newBook = new db.Book({
+   title: req.body.title,
+   image: req.body.image,
+   release_date: req.body.release_date,
+ });
+ db.Author.findOne({name: req.body.author},(err, author)=>{
+   console.log(author);
+   if (author==null) {
+     author= new db.Author({ name: req.body.author, alive: true });
+     author.save((err,newAuthor)=>{
+       if (err) { console.log(“create new author error: ” + err); }
+     });
+   }
+   newBook.author = author;
+   // add newBook to database
+   newBook.save((err, book)=> {
+     if (err) { console.log(“create error: ” + err); }
+     console.log(“created “, book.title);
+     res.json(book);
+   });
+ });
 });
 
 // update book
